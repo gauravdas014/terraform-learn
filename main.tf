@@ -1,21 +1,31 @@
+terraform {
+  required_version = ">= 0.12"
+  backend "s3" {
+    bucket = "myapp-bucket"
+    key    = "myapp/state.tfstate"
+    region = "ap-south-1"
+  }
+}
+
 provider "aws" {
   region = "ap-south-1"
 }
 
-resource "aws_vpc" "myapp-vpc" {
-  cidr_block = var.vpc_cidr_block
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+
+  name = "my-vpc"
+  cidr = var.vpc_cidr_block
+
+  azs            = [var.avail_zone]
+  public_subnets = [var.subnet_cidr_block]
+  public_subnet_tags = {
+    Name = "${var.env_prefix}-subnet-1"
+  }
+
   tags = {
     Name = "${var.env_prefix}-vpc"
   }
-}
-
-module "myapp-subnet" {
-  source                 = "./modules/subnet"
-  subnet_cidr_block      = var.subnet_cidr_block
-  avail_zone             = var.avail_zone
-  env_prefix             = var.env_prefix
-  vpc_id                 = aws_vpc.myapp-vpc.id
-  default_route_table_id = aws_vpc.myapp-vpc.default_route_table_id
 }
 
 resource "aws_default_security_group" "default-sg" {
@@ -60,8 +70,6 @@ data "aws_ami" "latest-amazon-linux-image" {
     values = ["hvm"]
   }
 }
-
-
 
 resource "aws_key_pair" "ssh-key" {
   key_name   = "server-key"
